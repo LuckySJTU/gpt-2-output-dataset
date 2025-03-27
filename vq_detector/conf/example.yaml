@@ -1,0 +1,3 @@
+h5_file_path: "/home/yxwang/gpt-2-output-dataset/data/webtext"
+batch_size: 4096
+hidden_size: 768

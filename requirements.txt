@@ -4,3 +4,7 @@ requests>=2.22.0
 tqdm>=4.32.2
 torch>=1.2.0
 tensorboard>=1.14.0
+vector-quantize-pytorch
+matplotlib
+h5py
+pyyaml

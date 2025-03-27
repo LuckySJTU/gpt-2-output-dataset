@@ -1,2 +1,5 @@
 .mypy_cache/
 data/
+*.pt
+*.pyc
+vq_detector/exp/*

@@ -1,0 +1,1 @@
+You need cd to vq_detector and run python train_vq.py
