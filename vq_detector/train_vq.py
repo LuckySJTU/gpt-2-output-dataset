@@ -65,13 +65,16 @@ def evaluate(model, eval_loader, split: str, writer: SummaryWriter = None, step:
     model.to(device)
     model.eval()
     eval_rec_loss = 0
+    eval_rec_losses = []
     index_counts = {i: torch.zeros(num_codes).int().to(device) for i in range(num_quantizers)}
 
     with torch.no_grad():
         for batch in tqdm(eval_loader, desc=f"Running on {split}"):
             x = batch.to(device).squeeze(dim=0)
             rec_loss, cmt_loss, total_loss, indices = compute_loss(model, x)
+            rec_loss = rec_loss.cpu()
             eval_rec_loss += rec_loss.item()
+            eval_rec_losses.append(rec_loss.item())
             for codebook_idx in range(num_quantizers):
                 sub_indices = indices[..., codebook_idx] if num_quantizers > 1 else indices  # [B, T]
                 for indice in sub_indices:
@@ -79,6 +82,9 @@ def evaluate(model, eval_loader, split: str, writer: SummaryWriter = None, step:
                     index_counts[codebook_idx] += frequency
 
     eval_rec_loss /= len(eval_loader)
+    eval_rec_losses = torch.tensor(eval_rec_losses)
+    logging.info(f"Average loss: {eval_rec_losses.mean()}")
+    logging.info(f"Loss std: {eval_rec_losses.std()}")
     individual_utilizations = []
     for codebook_idx in range(num_quantizers):
         utilized_indices_in_codebook = torch.count_nonzero(index_counts[codebook_idx]).item()

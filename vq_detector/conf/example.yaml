@@ -1,3 +1,3 @@
-h5_file_path: "/home/yxwang/gpt-2-output-dataset/data/webtext"
+h5_file_path: "/home/yxwang/gpt-2-output-dataset/data/small"
 batch_size: 4096
 hidden_size: 768

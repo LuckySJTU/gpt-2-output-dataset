@@ -9,8 +9,9 @@ logging.basicConfig(
 )
 
 
-def get_model(vae_config_path):
-    vae_config = load_config(vae_config_path)
+def get_model(vae_config_path, vae_config=None):
+    if vae_config is None:
+        vae_config = load_config(vae_config_path)
 
     if vae_config['vq_type'] == 'VectorQuantize': 
         vqvae = VectorQuantize(

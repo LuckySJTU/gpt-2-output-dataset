@@ -2,7 +2,7 @@
 
 set -x
 
-RUN_NAME=0326_vqtest
+RUN_NAME=0327_vq_small
 MODEL_CONFIG_DIR=./conf/residualsimvq.yaml
 DATA_CONFIG_DIR=./conf/example.yaml
 # TRAIN_CONFIG_DIR=./conf/hlm_train/train_config.yaml
