@@ -8,3 +8,4 @@ vector-quantize-pytorch
 matplotlib
 h5py
 pyyaml
+accelerate
