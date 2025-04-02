@@ -37,8 +37,6 @@ def get_model(vae_config_path, vae_config=None):
             rotation_trick=True,
             straight_through=False,
         )
-    elif vae_config['vq_type'] == 'TruthX_ResidualVQ':
-        vqvae = TruthXVAE(vae_config)
     elif vae_config['vq_type'] == 'GroupedResidualVQ':  
         vqvae = GroupedResidualVQ(
             dim = vae_config['embedding_dim'],
