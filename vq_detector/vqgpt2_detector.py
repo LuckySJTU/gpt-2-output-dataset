@@ -5,6 +5,7 @@ sys.path.append('.')
 from detector.dataset import Corpus, EncodedDataset
 from torch.utils.data import DataLoader, DistributedSampler, RandomSampler
 from transformers import AutoTokenizer, AutoConfig, AutoModelForCausalLM
+from train_vqvaegpt2 import VQVAEGPT2, VQVAEGPT2Config
 from tqdm import tqdm
 import torch
 import h5py
@@ -39,15 +40,7 @@ def load_checkpoint(model, optimizer, ckpt_path):
 def main():
     seed_everything(SEED)
     parser = argparse.ArgumentParser()
-    parser.add_argument("--data_config", default='example.yaml')
-    parser.add_argument("--model_config", default='vectorquantize.yaml')
     parser.add_argument("--ckpt_dir", default='./exp')
-    parser.add_argument("--test", action='store_true')
-    parser.add_argument("--patience", type=int, default=0,
-                        help='setting patience>0 will enable early stopping.')
-    parser.add_argument("--lr", type=float, default=3e-4)
-    parser.add_argument("--scheduler", action='store_true', 
-                        help='ReduceLRonPlateau')
     args = parser.parse_args()
     data_dir = 'data'
     real_dataset = 'webtext'
@@ -67,16 +60,8 @@ def main():
 
     config = AutoConfig.from_pretrained(model_name)
     tokenizer = AutoTokenizer.from_pretrained(model_name)
-    tokenizer.max_len=config.n_ctx
-    model = AutoModelForCausalLM.from_pretrained(
-            model_name,
-            from_tf=bool(".ckpt" in model_name),
-            config=config,
-            cache_dir=model_name,
-        )
-    
-    vq_model = get_model(args.model_config)
-    load_checkpoint(vq_model, None, os.path.join(args.ckpt_dir, 'best_checkpoint.pt'))
+    tokenizer.max_len = config.n_ctx
+    model = VQVAEGPT2.from_pretrained(args.ckpt_dir)
 
     train_dataset = EncodedDataset(real_train, fake_train, tokenizer)
     train_loader = DataLoader(train_dataset, batch_size=1, sampler=Sampler(train_dataset))
@@ -87,11 +72,9 @@ def main():
 
     model.to(device)
     model.eval()
-    vq_model.to(device)
-    vq_model.eval()
     votes=1
-    loader = train_loader
-    records = [record for v in range(votes) for record in tqdm(loader, desc=f'Preloading train data ... {v}')]
+    loader = test_loader
+    records = [record for v in range(votes) for record in tqdm(loader, desc=f'Preloading test data ... {v}')]
     records = [[records[v * len(loader) + i] for v in range(votes)] for i in range(len(loader))]
     
     classifications = []
@@ -103,12 +86,10 @@ def main():
         for example in loop:
             for texts, masks, labels in example:
                 texts, masks, labels = texts.to(device), masks.to(device), labels.to(device)
-                output = model(input_ids=texts, attention_mask=masks, output_hidden_states=True)
-                hidden_states = output[2][5].squeeze(dim=0)
-                out, indices, cmt_loss = vq_model(hidden_states)
+                x, out = model.get_vq_features(input_ids=texts, attention_mask=masks)
                 classifications.append(labels.item())
-                mse_scores.append(mse_criterion(out, hidden_states).item())
-                cos_scores.append(cos_criterion(out, hidden_states).mean().item())
+                mse_scores.append(mse_criterion(x, out).item())
+                cos_scores.append(cos_criterion(x, out).mean().item())
     df1 = pd.DataFrame({
         "Label": classifications,
         "Score": mse_scores
@@ -120,12 +101,12 @@ def main():
     # 小提琴图
     sns.violinplot(x="Label", y="Score", data=df1)
     plt.title("MSE Distribution by Label")
-    plt.savefig('vq_detector/exp/0327_vq_small/mse_violinplot.png')
+    plt.savefig('vq_detector/exp/0328_vqvae_gpt2_test/mse_violinplot.png')
     
     plt.clf()
     sns.violinplot(x="Label", y="Score", data=df2)
     plt.title("CosSim Distribution by Label")
-    plt.savefig("vq_detector/exp/0327_vq_small/cos_violinplot.png")
+    plt.savefig("vq_detector/exp/0328_vqvae_gpt2_test/cos_violinplot.png")
 
     # 输入数据
     # classifications = [0, 1, 1, 0, ...]  # 真实标签
@@ -151,7 +132,7 @@ def main():
     plt.legend()
     plt.grid(True)
     plt.tight_layout()
-    plt.savefig('vq_detector/exp/0327_vq_small/mse_roc_curve.png')
+    plt.savefig('vq_detector/exp/0328_vqvae_gpt2_test/mse_roc_curve.png')
     plt.close()
 
     fpr, tpr, roc_thresholds = roc_curve(classifications, cos_scores)
@@ -173,7 +154,7 @@ def main():
     plt.legend()
     plt.grid(True)
     plt.tight_layout()
-    plt.savefig('vq_detector/exp/0327_vq_small/cos_roc_curve.png')
+    plt.savefig('vq_detector/exp/0328_vqvae_gpt2_test/cos_roc_curve.png')
     plt.close()
 
     # ==== PR + F1 ====
@@ -196,7 +177,7 @@ def main():
     plt.legend()
     plt.grid(True)
     plt.tight_layout()
-    plt.savefig('vq_detector/exp/0327_vq_small/mse_pr_curve.png')
+    plt.savefig('vq_detector/exp/0328_vqvae_gpt2_test/mse_pr_curve.png')
     plt.close()
 
     precision, recall, pr_thresholds = precision_recall_curve(classifications, cos_scores)
@@ -218,7 +199,7 @@ def main():
     plt.legend()
     plt.grid(True)
     plt.tight_layout()
-    plt.savefig('vq_detector/exp/0327_vq_small/cos_pr_curve.png')
+    plt.savefig('vq_detector/exp/0328_vqvae_gpt2_test/cos_pr_curve.png')
     plt.close()
 
 if __name__ == '__main__':
